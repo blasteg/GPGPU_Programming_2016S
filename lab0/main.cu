@@ -12,9 +12,15 @@
 
 __global__ void SomeTransform(char *input_gpu, int fsize) {
 	int idx = blockIdx.x * blockDim.x + threadIdx.x;
-	if (idx < fsize and input_gpu[idx] != '\n') {
-		input_gpu[idx] = '!';
-	}
+	int otheridx=fsize-idx;
+	char buffer;
+	if (idx>otheridx)
+		return;
+	
+	buffer=	input_gpu[idx];
+	input_gpu[idx]=input_gpu[otheridx];
+	input_gpu[otheridx]=buffer;
+	
 }
 
 int main(int argc, char **argv)
@@ -44,10 +50,12 @@ int main(int argc, char **argv)
 
 	// TODO: do your transform here
 	char *input_gpu = text_smem.get_gpu_rw();
-	// An example: transform the first 64 characters to '!'
+	int Nthreads=((fsize-1)/2)+1;
+	int gridSize=((Nthreads-1)/32)+1;
+	// My transform: flip the input text
 	// Don't transform over the tail
 	// And don't transform the line breaks
-	SomeTransform<<<2, 32>>>(input_gpu, fsize);
+	SomeTransform<<<gridSize, 32>>>(input_gpu, fsize);
 
 	puts(text_smem.get_cpu_ro());
 	return 0;
