@@ -12,7 +12,7 @@
 
 __global__ void SomeTransform(char *input_gpu, int fsize) {
 	int idx = blockIdx.x * blockDim.x + threadIdx.x;
-	int otheridx=fsize-idx;
+	int otheridx=fsize-1-idx;
 	char buffer;
 	if (idx>otheridx)
 		return;
