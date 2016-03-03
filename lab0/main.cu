@@ -16,6 +16,8 @@ __global__ void SomeTransform(char *input_gpu, int fsize) {
 	char buffer;
 	if (idx>otheridx)
 		return;
+	if (input_gpu[idx] == '\n' || input_gpu[otheridx] != '\n')
+		return;
 	
 	buffer=	input_gpu[idx];
 	input_gpu[idx]=input_gpu[otheridx];
@@ -52,7 +54,7 @@ int main(int argc, char **argv)
 	char *input_gpu = text_smem.get_gpu_rw();
 	int Nthreads=((fsize-1)/2)+1;
 	int gridSize=((Nthreads-1)/32)+1;
-	// My transform: flip the input text
+	// My transform: flip the input text, except when one meets a changeline
 	// Don't transform over the tail
 	// And don't transform the line breaks
 	SomeTransform<<<gridSize, 32>>>(input_gpu, fsize);
