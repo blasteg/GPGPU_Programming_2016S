@@ -85,16 +85,17 @@ int ExtractHead(const int *pos, int *head, int text_size)
 
 	// TODO
 	thrust::device_ptr<const int> iter;
-	int now=0;
-	while(now != text_size)
+	int now=-1;
+	while(now != (text_size-1))
 	{
-	iter= thrust::find ( pos_d+now,pos_d+text_size,1);
+	iter= thrust::find ( pos_d+now+1,pos_d+text_size-1,1);
 	now=iter-pos_d;
 	if (*(pos_d+now) == 1)
 	heads.push_back(now);
-
+	//printf("%d/%d\n",now,text_size);
 	}
 	nhead=heads.size();
+	//printf("%d\n",nhead);
 	cudaFree(buffer);
 	cudaMemcpy(head,heads.data(),nhead*sizeof(int),cudaMemcpyHostToDevice);
 	return nhead;
