@@ -41,12 +41,52 @@ __global__ void count_up(int* input, int* output,int text_size,int IntendedValue
 
 }
 
+__global__ void count_which_word(int* input,int* output,int text_size,int* head, int now_checking)
+{
+	int idx = blockIdx.x * blockDim.x + threadIdx.x;
+	if (idx>=text_size)
+		return;
+	if (idx<head[now_checking])
+		output[idx]=input[idx];
+	else
+		output[idx]=input[idx]+1;
+}
+
+__global__ void Caesar_shift(char* text,int* pos,int* at_which_word,int text_size,int base_offset,int extra_offset_per_position,int extra_offset_per_word)
+{
+	int idx = blockIdx.x * blockDim.x + threadIdx.x;
+	int letter,capital;
+	if (idx>=text_size)
+		return;
+	if (text[idx]>='a' && text[idx]<= 'z')
+	{
+		letter=text[idx]-'a';
+		capital=1;
+	}
+	else if (text[idx]>='A' && text[idx]<= 'Z')
+	{
+		letter=text[idx]-'A';
+		capital=2;
+	}
+	else
+		return;
+	letter=letter+base_offset+pos[idx]*extra_offset_per_position;
+	letter=letter%26;
+	letter=letter++at_which_word[idx]*extra_offset_per_word;
+	letter=letter%26;
+	if (capital==1)
+		text[idx]=letter+'a';
+	if (capital==2)
+		text[idx]=;etter+'A';
+}
+
 void CountPosition(const char *text, int *pos, int text_size)
 {
-	int gridSize=((text_size-1)/32)+1;
+	int gridSize=((text_size-1)/1024)+1;
+
 	int i;
 	int IntnededValue=1;
-	first_step<<<gridSize, 32>>>(text,pos,text_size);//first step: decide which are letter which are not
+	first_step<<<gridSize, 1024>>>(text,pos,text_size);//first step: decide which are letter which are not
 	char did_thing;
 	char *d_did_thing;
 	int *pos2;
@@ -59,15 +99,18 @@ void CountPosition(const char *text, int *pos, int text_size)
 		i=i+1;
 		did_thing=0;
 		cudaMemcpy(d_did_thing,&did_thing,sizeof(char),cudaMemcpyHostToDevice);
+
 		if (i%2)
-			count_up<<<gridSize, 32>>>(pos,pos2,text_size,IntnededValue,d_did_thing);
+			count_up<<<gridSize, 1024>>>(pos,pos2,text_size,IntnededValue,d_did_thing);
 		else
-			count_up<<<gridSize, 32>>>(pos2,pos,text_size,IntnededValue,d_did_thing);
+			count_up<<<gridSize, 1024>>>(pos2,pos,text_size,IntnededValue,d_did_thing);
 		IntnededValue=IntnededValue*2;
+		
 		cudaMemcpy(&did_thing,d_did_thing,sizeof(char),cudaMemcpyDeviceToHost);
+		
 	}
 	if (i%2)
-		cudaMemcpy(pos,pos2,sizeof(char),cudaMemcpyDeviceToDevice);
+		cudaMemcpy(pos,pos2,text_size*sizeof(int),cudaMemcpyDeviceToDevice);
 	cudaFree(pos2);
 	cudaFree(d_did_thing);
 
@@ -103,4 +146,27 @@ int ExtractHead(const int *pos, int *head, int text_size)
 
 void Part3(char *text, int *pos, int *head, int text_size, int n_head)
 {
+	int *at_which_word, *at_which_word_buffer,i;
+	cudaMalloc(&at_which_word, sizeof(int)*text_size);
+	cudaMalloc(&at_which_word_buffer, sizeof(int)*text_size);
+	cudaMemset (at_which_word, 0, sizeof(int)*text_size );
+	cudaMemset (at_which_word_buffer, 0, sizeof(int)*text_size );
+
+	int gridSize=((text_size-1)/1024)+1;
+	//counting the belonging of which word
+	for (i=0;i<n_head;i++)
+	{
+		if (i%2==0)
+			count_which_word<<<gridSize, 1024>>>(at_which_word,at_which_word_buffer,text_size,head,i);
+		else
+			count_which_word<<<gridSize, 1024>>>(at_which_word_buffer,at_which_word,text_size,head,i);
+	}
+	if(i%2)
+		cudaMemcpy(at_which_word,at_which_word_buffer,text_size*sizeof(int),cudaMemcpyDeviceToDevice);
+	cudaFree(at_which_word_buffer);
+	//My work : position-in-word andat-which-word dependent Caesar encoding.
+	int base_offset=3;
+	int extra_offset_per_position=1;
+	int extra_offset_per_word=7;
+	Caesar_shift<<<gridSize, 1024>>>(text,pos,at_which_word,text_size,base_offset,extra_offset_per_position,extra_offset_per_word);
 }
