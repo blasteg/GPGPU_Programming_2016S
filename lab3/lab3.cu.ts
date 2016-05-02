@@ -29,7 +29,7 @@ __global__ void SimpleClone(
 
 
 
-__global__ void PoissonClone(const float* background,const float* target,const float* mask,float* input,float* output,int wt,int ht,int wb,int hb,int oy, int ox)
+__global__ void PoissonClone(const float* background,const float* target,const float* mask,float* input,float* output,int wt,int ht,int wb,int hb,int oy, int ox,float omega)
 {
 int thread2Dpx = blockIdx.x * blockDim.x + threadIdx.x;
   int thread2Dpy = blockIdx.y * blockDim.y + threadIdx.y;
@@ -146,6 +146,10 @@ int thread2Dpx = blockIdx.x * blockDim.x + threadIdx.x;
   	output[thread1Dp*3+0]=output[thread1Dp*3+0]/(float)4;
   	output[thread1Dp*3+1]=output[thread1Dp*3+1]/(float)4;
   	output[thread1Dp*3+2]=output[thread1Dp*3+2]/(float)4;
+
+  	output[thread1Dp*3+0]=omega*output[thread1Dp*3+0]-(1-omega)*input[thread1Dp*3+0];
+  	output[thread1Dp*3+1]=omega*output[thread1Dp*3+1]-(1-omega)*input[thread1Dp*3+1];
+  	output[thread1Dp*3+2]=omega*output[thread1Dp*3+2]-(1-omega)*input[thread1Dp*3+2];
   }
 }
 
@@ -171,8 +175,8 @@ void PoissonImageCloning(
 
     for (int i=0;i<10000;i++)
     {
-    	PoissonClone<<<gridSize,blockSize>>>(background,target,mask,buffer1,buffer2,wt,ht, wb, hb, oy,  ox);
-    	PoissonClone<<<gridSize,blockSize>>>(background,target,mask,buffer2,buffer1,wt,ht, wb, hb, oy,  ox);
+    	PoissonClone<<<gridSize,blockSize>>>(background,target,mask,buffer1,buffer2,wt,ht, wb, hb, oy,  ox,1.1);
+    	PoissonClone<<<gridSize,blockSize>>>(background,target,mask,buffer2,buffer1,wt,ht, wb, hb, oy,  ox,1.1);
     }
     cudaMemcpy(output, background, wb*hb*sizeof(float)*3, cudaMemcpyDeviceToDevice);
 	SimpleClone<<<dim3(CeilDiv(wt,32), CeilDiv(ht,16)), dim3(32,16)>>>(
